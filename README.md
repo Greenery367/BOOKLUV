@@ -2,7 +2,6 @@
 - 원본 프로젝트
 https://github.com/chaezerojj/BOOKLUV
 - 성능 테스트 및 기능 최적화 회고 https://velog.io/@thdgus79/%EB%A6%AC%ED%8C%A9%ED%86%A0%EB%A7%81
----
 
 # 🚀 WebChat 성능 최적화 보고서 (1,000 VU 대응)
 

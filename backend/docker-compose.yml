@@ -9,10 +9,15 @@ services:
       - "5432:5432"
     networks:
       - backend
+    # [저사양 설정] DB도 메모리를 제한하여 실제 환경과 유사하게 만듭니다.
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: '128M'
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # 1. HTTP 전용 서버 (Gunicorn)
   web-http:
     build: .
     command: bash start.sh
@@ -33,7 +38,7 @@ services:
     networks:
       - backend
 
-  # 2. WebSocket 전용 서버 (Daphne)
+  # 2. WebSocket 전용 서버 (Daphne) - 핵심 최적화 대상
   web-ws:
     build: .
     command: bash start.sh
@@ -53,6 +58,12 @@ services:
       - PYTHONUNBUFFERED=1
     networks:
       - backend
+    # [저사양 설정] Railway 무료 플랜 환경 강제 재현
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'      # CPU 사용량을 10%로 제한
+          memory: '256M'   # 메모리를 256MB로 제한 (초과 시 컨테이너 종료됨)
 
   redis:
     image: redis:7
@@ -62,10 +73,16 @@ services:
       - TZ=Asia/Seoul
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: '64M'
 
   celery:
     build: .
-    command: celery -A backend worker -l info
+    # [최적화] --concurrency=1 옵션으로 프로세스 수를 줄여 메모리 사용량을 최소화합니다.
+    command: celery -A backend worker -l info --concurrency=1
     volumes:
       - .:/code
     depends_on:
@@ -77,6 +94,11 @@ services:
       - DJANGO_SETTINGS_MODULE=backend.settings 
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: '128M' # 이전 테스트에서 700MB였던 것을 강제로 다이어트 시킵니다.
 
   celery-beat:
     build: .
@@ -92,6 +114,11 @@ services:
       - DJANGO_SETTINGS_MODULE=backend.settings 
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: '64M'
 
 networks:
   backend:

@@ -1,7 +1,7 @@
 # 📖BOOKLUV : 웹소켓 채팅 기능 최적화 해보기
 - 원본 프로젝트
 https://github.com/chaezerojj/BOOKLUV
-- 프로젝트 회고 https://velog.io/@thdgus79/%EB%A6%AC%ED%8C%A9%ED%86%A0%EB%A7%81
+- 성능 테스트 및 기능 최적화 회고 https://velog.io/@thdgus79/%EB%A6%AC%ED%8C%A9%ED%86%A0%EB%A7%81
 # 🚀 WebChat 성능 최적화 기록 (1,000 VU 대응)
 > **"0.1 vCPU라는 극한의 제약 조건에서 데이터 최적화와 트래픽 정책만으로 성공률 100%를 달성"**
 

@@ -87,23 +87,31 @@
     chatLog.scrollTop = chatLog.scrollHeight;
 
     function connect() {
-        const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-        chatSocket = new WebSocket(protocol + window.location.host + "/ws/chat/" + roomName + "/");
+    const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+    // window.location.host 대신 hostname + ":8001"을 사용하세요.
+    const wsUrl = protocol + window.location.hostname + ":8001/ws/chat/" + roomName + "/";
+    
+    console.log("연결 시도 주소:", wsUrl);
+    chatSocket = new WebSocket(wsUrl);
 
-        chatSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-            console.log("수신 데이터:", data);
+    chatSocket.onopen = function() {
+        console.log("✅ 채팅 연결 성공 (8001)");
+    };
 
-            if (data.type === "chat" || data.type === "system") {
-                renderMessage(data);
-            } else if (data.type === "participants") {
-                updateParticipantsList(data.participants);
-            }
-        };
+    chatSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        if (data.type === "chat" || data.type === "system") {
+            renderMessage(data);
+        } else if (data.type === "participants") {
+            updateParticipantsList(data.participants);
+        }
+    };
 
-        chatSocket.onclose = function() { setTimeout(connect, 3000); };
-    }
-
+    chatSocket.onclose = function() { 
+        console.log("연결 끊김. 3초 후 재연결...");
+        setTimeout(connect, 3000); 
+    };
+}
     function renderMessage(data) {
         const div = document.createElement('div');
         if (data.type === "system") {

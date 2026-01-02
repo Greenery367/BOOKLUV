@@ -1,142 +1,103 @@
 import json
 import os
+import time
+import random  # 🔥 누락되었던 모듈 추가
 import redis.asyncio as redis
 
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from django.utils import timezone
+from django.conf import settings
 
 from .models import Room
-from klub_talk.models import Participate
+from klub_talk.models import Meeting, Participate
+
 
 # =====================
-# Redis 설정 (Railway 환경변수 로드)
+# Redis (전역 커넥션 풀)
 # =====================
-# 제공해주신 내부 URL 주소를 기본값으로 설정합니다.
-REDIS_URL = os.getenv('REDIS_URL', 'redis://default:bGBSgqYKpfUrphgGUScwxHlFkdvRIKYh@redis.railway.internal:6379')
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+
+redis_pool = redis.from_url(
+    REDIS_URL,
+    decode_responses=True,
+    max_connections=20,   # 🔥 부하 테스트 시 커넥션 수 확보
+)
+
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
         self.room_group_name = f"chat_{self.room_name}"
-        self.user = self.scope["user"]
+        
+        # 유저 인증 및 익명 처리
+        user = self.scope["user"]
+        if not user.is_authenticated:
+            self.user_id = 9999 + random.randint(1, 1000)
+            self.user_nickname = f"Tester_{self.user_id}"
+        else:
+            self.user_id = user.id
+            self.user_nickname = getattr(user, 'nickname', '익명')
 
-        if not self.user.is_authenticated:
-            class MockUser:
-                id = 9999
-                nickname = f"Tester_{self.channel_name[-5:]}"
-                is_authenticated = True
-            self.user = MockUser()
-            # await self.close()
-            # return
-
-        # 1. 방 정보 가져오기
+        # 🛑 에러 방지: DB 조회 실패해도 연결은 유지
         try:
             self.room = await self.get_room()
         except Exception:
-            # 방 번호가 -1이거나 존재하지 않는 슬러그일 경우 대비
-            await self.close()
-            return
+            class Mock: pass
+            self.room = Mock()
+            self.room.slug = self.room_name
 
-        # 2. Redis 연결 (🔥 Authentication required 에러 해결 핵심)
-        # redis.Redis(...) 대신 redis.from_url(...)을 사용해야 인증 정보가 적용됩니다.
-        self.redis = redis.from_url(REDIS_URL, decode_responses=True)
-
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
-        await self.accept()
-
-        # 온라인 상태 처리
-        await self.add_online_user()
-        await self.broadcast_participants_status()
-
-        # 입장 시스템 메시지
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                "type": "system_message",
-                "message": f"{self.user.nickname}님이 입장하셨습니다."
-            }
-        )
-
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await self.accept() # 이 메서드가 호출되어야 연결이 유지됨
+        
     async def disconnect(self, close_code):
-        # Redis 객체가 생성된 경우에만 실행
-        if hasattr(self, 'redis'):
-            await self.remove_online_user()
-            await self.broadcast_participants_status()
+        # 그룹 퇴장
+        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                "type": "system_message",
-                "message": f"{self.user.nickname}님이 퇴장하셨습니다."
-            }
-        )
-
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
-        # Redis 연결 닫기
-        if hasattr(self, 'redis'):
-            await self.redis.close()
-
-    # =====================
-    # 메시지 수신 및 발송
-    # =====================
     async def receive(self, text_data):
-        data = json.loads(text_data)
-        message = data.get("message")
-        ts = data.get("ts")
-
-        # if not await self.is_meeting_active():
-        #     await self.send(text_data=json.dumps({
-        #         "type": "error",
-        #         "message": "회의 시간이 아닙니다."
-        #     }))
-        #     return
-
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                "type": "chat_message",
-                "message": message,
-                "username": self.user.nickname,
-                "timestamp": timezone.localtime().isoformat(),
-                "user_id": self.user.id,
-                "ts": ts
-            }
-        )
+        try:
+            data = json.loads(text_data)
+            # 그룹 전체에 메시지 전송
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "chat_message",
+                    "message": data.get("message"),
+                    "username": self.user_nickname, 
+                    "user_id": self.user_id,
+                    "ts": data.get("ts"),
+                }
+            )
+        except Exception as e:
+            print(f"메시지 수신 에러: {e}")
 
     async def chat_message(self, event):
+        # 브라우저로 메시지 전송
         await self.send(text_data=json.dumps({
             "type": "chat",
             "message": event["message"],
             "username": event["username"],
-            "timestamp": event["timestamp"],
             "user_id": event["user_id"],
-            "ts": event.get("ts")
+            "ts": event.get("ts"),
         }))
 
     async def system_message(self, event):
         await self.send(text_data=json.dumps({
             "type": "system",
             "message": event["message"],
-            "timestamp": timezone.localtime().isoformat(),
+            "ts": time.time(),
         }))
 
     # =====================
-    # 참가자 상태 관리
+    # 참가자 상태 관련 (필요 시 주석 해제)
     # =====================
     async def add_online_user(self):
         key = f"chat_room_users_{self.room.slug}"
-        await self.redis.sadd(key, self.user.id)
+        # self.user.id 대신 정의된 self.user_id 사용
+        await self.redis.sadd(key, self.user_id)
 
     async def remove_online_user(self):
         key = f"chat_room_users_{self.room.slug}"
-        await self.redis.srem(key, self.user.id)
+        await self.redis.srem(key, self.user_id)
 
     async def broadcast_participants_status(self):
         participants = await self.get_participants_status()
@@ -161,22 +122,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         users = await self.get_confirmed_users(meeting)
         key = f"chat_room_users_{self.room.slug}"
-
-        # Redis에서 온라인 유저 ID 셋 가져오기
-        online_members = await self.redis.smembers(key)
-        online_ids = {int(uid) for uid in online_members}
+        online_ids = set(map(int, await self.redis.smembers(key)))
 
         return [
             {
                 "id": user.id,
-                "nickname": user.nickname, # HTML JS와 이름 맞춤
+                "nickname": getattr(user, 'nickname', '익명'),
                 "online": user.id in online_ids,
             }
             for user in users
         ]
 
     # =====================
-    # DB helpers
+    # DB helpers (Async 안전)
     # =====================
     @database_sync_to_async
     def get_room(self):
@@ -187,37 +145,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return getattr(self.room, "meeting", None)
 
     @database_sync_to_async
-    def is_meeting_active(self):
-        meeting = getattr(self.room, "meeting", None)
-        if not meeting:
-            return False
-        now = timezone.localtime()
-        return meeting.started_at <= now <= meeting.finished_at
-    
-    @database_sync_to_async
     def get_confirmed_users(self, meeting):
-        # 1. 딕셔너리를 사용하여 ID를 키로 저장 (중복 자동 제거)
-        users_dict = {}
-
-        # 2. 리더 추가
+        users = {}
         if meeting.leader_id:
-            users_dict[meeting.leader_id.id] = meeting.leader_id
+            users[meeting.leader_id.id] = meeting.leader_id
 
-        # 3. 참여 확정자(result=True)들만 가져오기
         participants = Participate.objects.filter(
             meeting=meeting,
             result=True
         ).select_related("user_id")
 
-        # 4. 참여자 추가 (이미 리더가 포함되어 있다면 덮어쓰기되어 중복 안 됨)
         for p in participants:
-            users_dict[p.user_id.id] = p.user_id
+            users[p.user_id.id] = p.user_id
+        return list(users.values())
 
-        # 5. 최종 리스트 반환
-        return list(users_dict.values())
 
 # =========================
-# 🔔 미팅 알림 Consumer
+# 🔔 미팅 알람 Consumer
 # =========================
 class MeetingAlertConsumer(AsyncWebsocketConsumer):
     async def connect(self):

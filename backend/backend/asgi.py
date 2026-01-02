@@ -21,8 +21,8 @@ from klub_chat.consumers import ChatConsumer, MeetingAlertConsumer
 # 5. 프로토콜 라우팅 설정
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
-    "websocket": AuthMiddlewareStack(
-        URLRouter([
+    "websocket": AuthMiddlewareStack(  # 인증이 필요하면 다시 넣으셔도 됩니다.
+        URLRouter([  # 여기서 리스트([])로 경로를 바로 감쌉니다.
             path('ws/chat/<room_name>/', ChatConsumer.as_asgi()),
             path('ws/meeting-alerts/', MeetingAlertConsumer.as_asgi()),
         ])

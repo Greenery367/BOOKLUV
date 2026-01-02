@@ -48,7 +48,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept() # 이 메서드가 호출되어야 연결이 유지됨
-        
     async def disconnect(self, close_code):
         # 그룹 퇴장
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
@@ -61,23 +60,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.room_group_name,
                 {
                     "type": "chat_message",
-                    "message": data.get("message"),
-                    "username": self.user_nickname, 
-                    "user_id": self.user_id,
-                    "ts": data.get("ts"),
+                    "m": data.get("m"), # message -> m
+                    "u": self.user_nickname, 
+                    "i": self.user_id,
+                    "s": data.get("s"), # ts -> s
                 }
             )
         except Exception as e:
-            print(f"메시지 수신 에러: {e}")
+            print(f"error: {e}")
 
     async def chat_message(self, event):
         # 브라우저로 메시지 전송
         await self.send(text_data=json.dumps({
-            "type": "chat",
-            "message": event["message"],
-            "username": event["username"],
-            "user_id": event["user_id"],
-            "ts": event.get("ts"),
+            "t": "c",
+            "m": event["m"],
+            "u": event["u"],
+            "i": event["i"],
+            "s": event.get("s"),
         }))
 
     async def system_message(self, event):

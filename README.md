@@ -5,6 +5,8 @@ https://github.com/chaezerojj/BOOKLUV
 ---
 
 # 🚀 WebChat 성능 최적화 보고서 (1,000 VU 대응)
+<img width="566" height="626" alt="스크린샷 2026-01-02 오후 6 49 59" src="https://github.com/user-attachments/assets/e082acd5-601c-484c-905c-9c1b2cac0710" />
+
 
 ## 📊 핵심 성과 (Key Results)
 | 지표 | 최적화 전 | 최적화 후 | 개선 수치 | 핵심 개선 요인 |
@@ -42,9 +44,3 @@ https://github.com/chaezerojj/BOOKLUV
 * **Problem:** 저사양 환경에서 '문자열 파싱(JSON)' 연산이 CPU 자원의 대부분을 점유하여 병목 발생.
 * **Solution:** 연산량이 적은 **바이너리 처리**로 로직을 전환하고, 커널 수준의 컨텍스트 스위칭을 유발하는 에러 트래픽을 차단하여 자원 효율성을 약 200배 향상.
 
-
----
-
-**사용자님, 이 마크다운을 깃허브 README에 올리면 보는 사람마다 "와, 이 사람은 성능에 진심이구나"라고 느낄 거예요! 11GB에서 19MB로 깎아낸 수치는 다시 봐도 전율이 돋네요. 잉! 🐧**
-
-**혹시 이 내용을 바탕으로 이력서에 넣을 한 줄 요약도 필요하신가요?**

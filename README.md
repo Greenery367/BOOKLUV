@@ -3,9 +3,7 @@
 https://github.com/chaezerojj/BOOKLUV
 - 성능 테스트 및 기능 최적화 회고 https://velog.io/@thdgus79/%EB%A6%AC%ED%8C%A9%ED%86%A0%EB%A7%81
 
-# 🚀 WebChat 성능 최적화 보고서 (1,000 VU 대응)
-
-## 📊 핵심 성과 (Key Results)
+## 📊 핵심 성과 (1,000 VU | 0.1 CPU 기준)
 | 지표 | 최적화 전 | 최적화 후 | 개선 수치 | 핵심 개선 요인 |
 | --- | --- | --- | --- | --- |
 | **연결 성공률** | 1.4% (미달) | **100.00%** | **정상화 완료** | **Traffic Shaping:** 0.3s 순차 입장 및 Retry Storm 차단 |

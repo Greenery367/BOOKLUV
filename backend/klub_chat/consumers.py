@@ -7,7 +7,7 @@ import msgpack
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.conf import settings
-
+import logging
 from .models import Room
 from klub_talk.models import Meeting, Participate
 
@@ -16,6 +16,7 @@ from klub_talk.models import Meeting, Participate
 # Redis (전역 커넥션 풀)
 # =====================
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+logger = logging.getLogger(__name__)
 
 redis_pool = redis.from_url(
     REDIS_URL,
@@ -73,7 +74,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
         except Exception as e:
-            print(f"❌ Receive Error: {e}")
+            logger.error(f"❌ 데이터 해독 실패: {e}")
 
     async def chat_message(self, event):
         payload = {

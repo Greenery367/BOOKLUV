@@ -7,7 +7,7 @@ https://github.com/chaezerojj/BOOKLUV
 # 🚀 WebChat 성능 최적화 보고서 (1,000 VU 대응)
 
 ## 📊 핵심 성과 (Key Results)
-| 지표 | 최적화 전 (Crisis) | 최적화 후 (Success) | 개선 수치 | 핵심 개선 요인 (Key Factors) |
+| 지표 | 최적화 전 | 최적화 후 | 개선 수치 | 핵심 개선 요인 |
 | --- | --- | --- | --- | --- |
 | **연결 성공률** | 1.4% (미달) | **100.00%** | **정상화 완료** | **Traffic Shaping:** 0.3s 순차 입장 및 Retry Storm 차단 |
 | **메시지 레이턴시 (P95)** | 4,460ms | **0ms (1ms 미만)** | **무지연 달성** | **Payload 경량화:** 전송 데이터 키값 단축 및 구조 최적화 |

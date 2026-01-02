@@ -3,7 +3,7 @@ import os
 import time
 import random  # 🔥 누락되었던 모듈 추가
 import redis.asyncio as redis
-
+import msgpack
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.conf import settings
@@ -52,76 +52,60 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # 그룹 퇴장
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
-    async def receive(self, text_data):
+    async def receive(self, text_data=None, bytes_data=None):
         try:
-            data = json.loads(text_data)
-            # 그룹 전체에 메시지 전송
+            # MessagePack 진공 포장 뜯기
+            if bytes_data:
+                data = msgpack.unpackb(bytes_data)
+            elif text_data:
+                data = json.loads(text_data)
+            else:
+                return
+
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     "type": "chat_message",
-                    "m": data.get("m"), # message -> m
+                    "m": data.get("m"), 
                     "u": self.user_nickname, 
                     "i": self.user_id,
-                    "s": data.get("s"), # ts -> s
+                    "s": data.get("s"), 
                 }
             )
         except Exception as e:
-            print(f"error: {e}")
+            print(f"❌ Receive Error: {e}")
 
     async def chat_message(self, event):
-        # 브라우저로 메시지 전송
-        await self.send(text_data=json.dumps({
+        payload = {
             "t": "c",
             "m": event["m"],
             "u": event["u"],
             "i": event["i"],
-            "s": event.get("s"),
-        }))
+            "s": event["s"],
+        }
+        # bytes_data로 전송 (완벽함)
+        await self.send(bytes_data=msgpack.packb(payload))
 
-    async def system_message(self, event):
-        await self.send(text_data=json.dumps({
-            "type": "system",
-            "message": event["message"],
-            "ts": time.time(),
-        }))
-
-    # =====================
-    # 참가자 상태 관련 (필요 시 주석 해제)
-    # =====================
-    async def add_online_user(self):
-        key = f"chat_room_users_{self.room.slug}"
-        # self.user.id 대신 정의된 self.user_id 사용
-        await self.redis.sadd(key, self.user_id)
-
-    async def remove_online_user(self):
-        key = f"chat_room_users_{self.room.slug}"
-        await self.redis.srem(key, self.user_id)
-
-    async def broadcast_participants_status(self):
-        participants = await self.get_participants_status()
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                "type": "participants_status",
-                "participants": participants,
-            }
-        )
-
+    # [보너스] 참가자 상태 전송도 MessagePack으로 통일하면 더 좋음
     async def participants_status(self, event):
-        await self.send(text_data=json.dumps({
+        payload = {
             "type": "participants",
             "participants": event["participants"],
-        }))
+        }
+        # 여기도 bytes_data로 보내야 프론트엔드가 안 터져요!
+        await self.send(bytes_data=msgpack.packb(payload))
 
+    # [수정] 아래 로직들은 별도의 헬퍼 함수나 기존 함수 안에 있어야 합니다.
     async def get_participants_status(self):
         meeting = await self.get_meeting()
         if not meeting:
             return []
 
         users = await self.get_confirmed_users(meeting)
+        # self.redis가 아닌 위에서 정의한 redis_pool을 사용해야 할 수도 있습니다.
         key = f"chat_room_users_{self.room.slug}"
-        online_ids = set(map(int, await self.redis.smembers(key)))
+        # decode_responses=True인 풀을 사용하므로 map(int) 사용 시 주의!
+        online_ids = set(map(int, await redis_pool.smembers(key)))
 
         return [
             {
@@ -131,7 +115,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
             for user in users
         ]
-
     # =====================
     # DB helpers (Async 안전)
     # =====================
@@ -171,10 +154,12 @@ class MeetingAlertConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
+    # [수정] 알람도 MessagePack으로 진공 포장
     async def send_meeting_alert(self, event):
-        await self.send(text_data=json.dumps({
+        payload = {
             "title": event["title"],
             "started_at": event["started_at"],
             "meeting_id": event["meeting_id"],
             "join_url": event.get("join_url", "#"),
-        }))
+        }
+        await self.send(bytes_data=msgpack.packb(payload))

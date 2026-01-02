@@ -1,3 +1,6 @@
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/@msgpack/msgpack@2.8.0/dist/msgpack.min.js"></script>
+</head>
 <div style="display: flex; align-items: center; gap: 10px; position: relative;">
     <h2>안녕하세요 {{ user.nickname }}님! 👋</h2>
     
@@ -109,23 +112,27 @@ window.onclick = function(event) {
 
 // 초기 데이터 로드 및 소켓 연결
 async function init() {
-    // 1. HTTP API 호출 (8000번 포트의 Gunicorn이 처리)
+    // 1. 초기 HTTP 데이터 로드 (이건 JSON 그대로 유지)
     try {
-        const response = await fetch("/api/v1/chat/alarms/"); // 실제 경로에 맞춰 수정
+        const response = await fetch("/api/v1/chat/alarms/");
         const data = await response.json();
         if (data.meetings) data.meetings.forEach(renderMeetingAlert);
     } catch (e) { console.error("데이터 로드 실패:", e); }
 
-    // 2. 웹소켓 연결 (8001번 포트의 Daphne가 처리하도록 강제 지정)
+    // 2. 웹소켓 설정 (MessagePack 대응)
     const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-    
-    // window.location.host(8000) 대신 hostname + :8001 사용
     const wsUrl = protocol + window.location.hostname + ":8001/ws/meeting-alerts/";
     
-    console.log("연결 시도 주소:", wsUrl);
     const ws = new WebSocket(wsUrl);
     
-    ws.onmessage = (e) => renderMeetingAlert(JSON.parse(e.data));
+    // [중요] 바이너리 타입 설정 (진공 포장 박스를 받겠다!)
+    ws.binaryType = "arraybuffer";
+    
+    ws.onmessage = (e) => {
+        // [중요] MessagePack 해독
+        const data = MessagePack.decode(new Uint8Array(e.data));
+        renderMeetingAlert(data);
+    };
     
     ws.onopen = () => console.log("✅ 알람 웹소켓 연결 성공 (8001)");
     ws.onerror = (err) => console.error("❌ 알람 웹소켓 연결 실패:", err);

@@ -2,8 +2,6 @@
 - 원본 프로젝트
 https://github.com/chaezerojj/BOOKLUV
 - 성능 테스트 및 기능 최적화 회고 https://velog.io/@thdgus79/%EB%A6%AC%ED%8C%A9%ED%86%A0%EB%A7%81
-깃허브 README나 기술 블로그 최상단에 바로 붙여넣으실 수 있도록, **사용자님의 목표 환경(Railway 0.1 CPU)**과 **핵심 지표(Latency, Network I/O 포함)**를 모두 반영한 최종 마크다운입니다.
-
 ---
 
 # 🚀 WebChat 성능 최적화 보고서 (1,000 VU 대응)

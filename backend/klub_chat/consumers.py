@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 redis_pool = redis.from_url(
     REDIS_URL,
     decode_responses=True,
-    max_connections=20,   # 🔥 부하 테스트 시 커넥션 수 확보
+    max_connections=200,   # 🔥 부하 테스트 시 커넥션 수 확보
 )
 
 
@@ -38,7 +38,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         else:
             self.user_id = user.id
             self.user_nickname = getattr(user, 'nickname', '익명')
-
+    
         # 🛑 에러 방지: DB 조회 실패해도 연결은 유지
         try:
             self.room = await self.get_room()
@@ -48,7 +48,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.room.slug = self.room_name
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-        await self.accept() # 이 메서드가 호출되어야 연결이 유지됨
+        
     async def disconnect(self, close_code):
         # 그룹 퇴장
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)

@@ -1,8 +1,6 @@
 import ws from 'k6/ws';
 import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
-// [수정] jslib에서 직접 함수를 가져옵니다.
-import { encode, decode } from 'https://jslib.k6.io/msgpack/1.0.2/index.js';
 
 const VALID_SLUGS = ['test-room', 'hot-topic-1']; 
 
@@ -34,29 +32,20 @@ export default function () {
                     m: `V${__VU}`,
                     s: Date.now(),
                 };
-                
-                // [수정] 임포트한 encode 함수를 직접 사용합니다.
-                const encoded = encode(payload);
-                // k6의 sendBinary는 Uint8Array를 그대로 받을 수 있습니다.
-                socket.sendBinary(encoded); 
+                const jsonStr = JSON.stringify(payload);
+                const buf = new ArrayBuffer(jsonStr.length);
+                const bufView = new Uint8Array(buf);
+                for (let i = 0; i < jsonStr.length; i++) {
+                    bufView[i] = jsonStr.charCodeAt(i);
+                }
+
+                socket.sendBinary(buf); 
                 msgSent.add(1);
             }, 5000); 
         });
 
         socket.on('message', (data) => {
             msgReceived.add(1);
-            try {
-                // [수정] 임포트한 decode 함수를 직접 사용합니다.
-                // data는 이미 ArrayBuffer 형태이므로 Uint8Array로 감싸줍니다.
-                const decoded = decode(new Uint8Array(data));
-                
-                if (decoded.s) {
-                    msgLatency.add(Date.now() - decoded.s);
-                }
-            } catch (e) {
-                // 해독 에러 시 디버깅을 위해 주석 해제 가능
-                // console.log("Decode error:", e);
-            }
         });
 
         socket.on('error', (e) => {

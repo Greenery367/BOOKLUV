@@ -3,9 +3,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
 
-# =====================
-# 기본 설정
-# =====================
+# API keys는 .env에서 로드
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,9 +15,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
-# =====================
-# Application
-# =====================
 INSTALLED_APPS = [
     "daphne",
     "channels",
@@ -68,39 +63,37 @@ TEMPLATES = [
     },
 ]
 
-# =====================
 # WSGI / ASGI
-# =====================
 WSGI_APPLICATION = "backend.wsgi.application"
 ASGI_APPLICATION = "backend.asgi.application"
 
-# =====================
-# Database (Postgres 우선, 없으면 SQLite)
-# =====================
+# PostgreSQL DB URL
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# 만약 DB URL이 있다면
 if DATABASE_URL:
+    # 해당 환경 변수 사용
     DATABASES = {
         "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
+# 만약 .env에 DB URL이 없다면
 else:
-    # 로컬 Docker Compose 환경에서 DB 컨테이너 이름은 'db'입니다.
+    # 아래의 설정으로 PostgreSQL DB 연결
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": "yourdbname",      # docker-compose.yml의 POSTGRES_DB와 일치
-            "USER": "postgres",        # docker-compose.yml의 POSTGRES_USER와 일치
-            "PASSWORD": "yourpassword", # docker-compose.yml의 POSTGRES_PASSWORD와 일치
-            "HOST": "db",              # 'localhost'가 아니라 서비스 이름인 'db'로 수정!
+            "NAME": "yourdbname",      
+            "USER": "postgres",        
+            "PASSWORD": "yourpassword", 
+            "HOST": "db",              
             "PORT": "5432",
         }
     }
 
-# =====================
-# Redis / Channels
-# =====================
+# REDIS 설정 -> .env에서 load
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0") 
 
+# REDIS 기반 채널 레이어 설정 ->WebSocket 사용 통로로 REDIS 사용
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -110,56 +103,35 @@ CHANNEL_LAYERS = {
     }
 }
 
-# Celery 설정도 REDIS_URL을 따라가므로 자동으로 해결됩니다.
+# Celery 설정도
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
-
-# =====================
-# Static files
-# =====================
-STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
-
-# =====================
-# Auth
-# =====================
-AUTH_USER_MODEL = "klub_user.User"
-
-# =====================
-# CORS (로컬은 전부 허용)
-# =====================
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
-
-# =====================
-# Timezone
-# =====================
-LANGUAGE_CODE = "ko-kr"
-TIME_ZONE = "Asia/Seoul"
-USE_I18N = True
-USE_TZ = True
-
-# =====================
-# Security (로컬은 최소)
-# =====================
-SECURE_SSL_REDIRECT = False
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
-
-# =====================
-# Celery (로컬 Redis)
-# =====================
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "Asia/Seoul"
 CELERY_ENABLE_UTC = False
 
-# =====================
-# Logging (성능 테스트용)
-# =====================
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+AUTH_USER_MODEL = "klub_user.User"
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+LANGUAGE_CODE = "ko-kr"
+TIME_ZONE = "Asia/Seoul"
+USE_I18N = True
+USE_TZ = True
+
+SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
+# k6 부하테스트를 위한 로깅 설정
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

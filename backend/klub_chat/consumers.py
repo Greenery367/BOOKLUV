@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 redis_pool = redis.from_url(
     REDIS_URL,
     decode_responses=True,
-    max_connections=200,   # 🔥 부하 테스트 시 커넥션 수 확보
+    max_connections=500,   # 🔥 부하 테스트 시 커넥션 수 확보
 )
 
 

@@ -2,28 +2,30 @@ import os
 import django
 from django.core.asgi import get_asgi_application
 
-# 1. 환경 변수 설정 (반드시 가장 먼저!)
-# 'your_project.settings'를 실제 프로젝트 명인 'backend.settings'로 수정함
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
-
-# 2. Django 초기화 (앱 로딩 완료)
+# 장고가 관리하는 모델, 앱 설정을 메모리에 올림
 django.setup()
-
-# 3. HTTP ASGI 애플리케이션 미리 생성
+# 표준 HTTP 요청(API) 처리를 위한 ASGI 애플리케이션 생성
 django_asgi_app = get_asgi_application()
 
-# 4. 앱 로딩 후 컨슈머 및 라우팅 임포트 (중요!)
+# import error 방지를 위해 설정 후 import
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from django.urls import path
 from klub_chat.consumers import ChatConsumer, MeetingAlertConsumer
 
-# 5. 프로토콜 라우팅 설정
+# 프로토콜 라우팅 설정
+# protocolTypeRouter = 어떤 프로토콜(HTTP/WS)이냐에 따라 경로 분기
 application = ProtocolTypeRouter({
+    # HTTP -> django_asgi_app
     "http": django_asgi_app,
-    "websocket": AuthMiddlewareStack(  # 인증이 필요하면 다시 넣으셔도 됩니다.
-        URLRouter([  # 여기서 리스트([])로 경로를 바로 감쌉니다.
+    # WebSocekt -> 
+    "websocket": AuthMiddlewareStack(  
+        # AuthMiddlewareStack = 장고 표준 세션 인증을 WS에서도 쓸 수 있게 해줌
+        URLRouter([ 
+            # 채팅방 연결 처리
             path('ws/chat/<room_name>/', ChatConsumer.as_asgi()),
+            # 미팅 알람 처리
             path('ws/meeting-alerts/', MeetingAlertConsumer.as_asgi()),
         ])
     ),
